@@ -1,0 +1,49 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+
+# Node
+node_modules/
+dist/
+build/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Environment
+.env
+.env.*
+
+# Model checkpoints
+*.pt
+*.pth
+*.onnx
+core/checkpoints/
+
+# Attack artifacts
+attack/frames/
+
+# Data
+data/
+datasets/
+
+# Fundus assets (keep the folder, ignore its contents)
+assets/fundus/*
+!assets/fundus/.gitkeep
+
+# Never ignore .gitkeep files
+!.gitkeep

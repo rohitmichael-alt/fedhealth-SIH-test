@@ -42,7 +42,10 @@
         <h2 class="panel-title">federated network</h2>
         <span id="server-ops" class="panel-sub mono">IDLE</span>
       </div>
-      <svg id="network-graph" viewBox="0 0 900 660" preserveAspectRatio="xMidYMid meet" aria-label="federated network graph"></svg>
+      <div class="graph-visual">
+        <canvas id="network-particles" aria-hidden="true"></canvas>
+        <svg id="network-graph" viewBox="0 0 900 660" preserveAspectRatio="xMidYMid meet" aria-label="federated network graph"></svg>
+      </div>
       <div id="client-rail" class="client-rail"></div>
     </section>
 

@@ -35,6 +35,7 @@ Use color sparingly. Prefer neutral borders and elevation. Colored surfaces shou
 - Panels use 12px radius, 1px neutral border, and neutral elevation only.
 - Do not use colored glow box shadows. If emphasis is needed, use color, weight, or a small status fill.
 - The slim blue line beneath the header is an intentional brand motion detail. Keep it restrained, 1px tall, and limited to the header divider.
+- A subtle particle canvas is allowed only behind the federated network graph. It should read as ambient telemetry depth, not as a decorative full-page background.
 - Accuracy chart should show one local reference line: the best local baseline.
 - Privacy budget uses segmented bars with stable height.
 - Patient image receipt counter should be prominent, green, and close to the throughput metrics without creating wasted vertical space.

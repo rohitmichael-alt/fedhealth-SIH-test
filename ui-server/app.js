@@ -30,6 +30,7 @@ const LINK_PATH_D = {
 const nodeRefs = {};
 const linkPathEls = {};
 let packetsLayer = null;
+let particlesAnimation = null;
 
 let totalRoundsSeen = 15;
 let accuracyPoints = [];
@@ -88,12 +89,7 @@ function buildNetworkGraph() {
   glow.appendChild(svgEl("stop", { offset: "70%", "stop-color": "#4D8DFF", "stop-opacity": "0.05" }));
   glow.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#4D8DFF", "stop-opacity": "0" }));
   defs.appendChild(glow);
-  const dotPattern = svgEl("pattern", { id: "fh-dots", width: 26, height: 26, patternUnits: "userSpaceOnUse" });
-  dotPattern.appendChild(svgEl("circle", { cx: 1.2, cy: 1.2, r: 1.2, fill: "#ffffff", "fill-opacity": 0.05 }));
-  defs.appendChild(dotPattern);
   svg.appendChild(defs);
-
-  svg.appendChild(svgEl("rect", { x: 0, y: 0, width: 900, height: 660, fill: "url(#fh-dots)" }));
 
   const linksLayer = svgEl("g", { id: "links-layer" });
   HOSPITALS.forEach((h) => {
@@ -152,6 +148,73 @@ function buildNetworkGraph() {
 
   packetsLayer = svgEl("g", { id: "packets-layer" });
   svg.appendChild(packetsLayer);
+}
+
+function initNetworkParticles() {
+  const canvas = document.getElementById("network-particles");
+  if (!canvas) return;
+
+  const ctx = canvas.getContext("2d");
+  const reduceMotion = prefersReducedMotion();
+  const particleCount = reduceMotion ? 28 : 70;
+  const particles = [];
+
+  function resize() {
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.max(1, Math.floor(rect.width * dpr));
+    canvas.height = Math.max(1, Math.floor(rect.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function seed() {
+    particles.length = 0;
+    const rect = canvas.getBoundingClientRect();
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * rect.width,
+        y: Math.random() * rect.height,
+        r: 0.8 + Math.random() * 1.7,
+        alpha: 0.08 + Math.random() * 0.22,
+        vx: reduceMotion ? 0 : -0.05 + Math.random() * 0.1,
+        vy: reduceMotion ? 0 : -0.03 + Math.random() * 0.06
+      });
+    }
+  }
+
+  function draw() {
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    ctx.fillStyle = "rgba(122, 167, 255, 0.08)";
+    particles.forEach((p) => {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < -4) p.x = rect.width + 4;
+      if (p.x > rect.width + 4) p.x = -4;
+      if (p.y < -4) p.y = rect.height + 4;
+      if (p.y > rect.height + 4) p.y = -4;
+      ctx.globalAlpha = p.alpha;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    if (!reduceMotion) {
+      particlesAnimation = requestAnimationFrame(draw);
+    }
+  }
+
+  resize();
+  seed();
+  draw();
+
+  window.addEventListener("resize", () => {
+    if (particlesAnimation) cancelAnimationFrame(particlesAnimation);
+    resize();
+    seed();
+    draw();
+  });
 }
 
 function buildClientRail() {
@@ -682,6 +745,7 @@ function connectWebSocket() {
 }
 
 buildNetworkGraph();
+initNetworkParticles();
 buildAccuracyChart();
 buildEpsilonGauge();
 buildClientRail();

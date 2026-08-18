@@ -6,12 +6,6 @@ const LOCAL_BASELINES = {
 
 const EPSILON_CEILING = 6.0; // PERSON 5: replace if final privacy-utility result uses a different ceiling
 
-const BASELINE_COLORS = {
-  hosp_a: "#9CA3AF",
-  hosp_b: "#7C8CA6",
-  hosp_c: "#5F6F89"
-};
-
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const HOSPITALS = [
@@ -388,34 +382,29 @@ function buildAccuracyChart() {
     svg.appendChild(label);
   });
 
-  Object.keys(LOCAL_BASELINES).forEach((id) => {
-    const value = LOCAL_BASELINES[id];
-    const y = chartY(value);
-    svg.appendChild(svgEl("line", {
-      class: "chart-baseline chart-baseline-" + id,
-      stroke: BASELINE_COLORS[id],
-      x1: chart.padLeft, y1: y,
-      x2: chart.width - chart.padRight, y2: y
-    }));
-  });
+  const bestLocalBaseline = Math.max(...Object.values(LOCAL_BASELINES));
+  const baselineY = chartY(bestLocalBaseline);
+  svg.appendChild(svgEl("line", {
+    class: "chart-baseline",
+    x1: chart.padLeft, y1: baselineY,
+    x2: chart.width - chart.padRight, y2: baselineY
+  }));
 
   const legend = document.getElementById("baseline-legend");
   if (legend) {
     legend.innerHTML = "";
-    Object.keys(LOCAL_BASELINES).forEach((id) => {
-      const item = document.createElement("span");
-      item.className = "legend-item mono";
-      const swatch = document.createElementNS(SVG_NS, "svg");
-      swatch.setAttribute("viewBox", "0 0 24 4");
-      swatch.setAttribute("class", "legend-swatch");
-      const swatchLine = svgEl("line", { x1: 0, y1: 2, x2: 24, y2: 2, class: "chart-baseline", stroke: BASELINE_COLORS[id] });
-      swatch.appendChild(swatchLine);
-      item.appendChild(swatch);
-      const text = document.createElement("span");
-      text.textContent = id + " " + LOCAL_BASELINES[id].toFixed(2);
-      item.appendChild(text);
-      legend.appendChild(item);
-    });
+    const item = document.createElement("span");
+    item.className = "legend-item mono";
+    const swatch = document.createElementNS(SVG_NS, "svg");
+    swatch.setAttribute("viewBox", "0 0 24 4");
+    swatch.setAttribute("class", "legend-swatch");
+    const swatchLine = svgEl("line", { x1: 0, y1: 2, x2: 24, y2: 2, class: "chart-baseline" });
+    swatch.appendChild(swatchLine);
+    item.appendChild(swatch);
+    const text = document.createElement("span");
+    text.textContent = "best local baseline " + bestLocalBaseline.toFixed(2);
+    item.appendChild(text);
+    legend.appendChild(item);
   }
 
   chartArea = svgEl("path", { class: "chart-area", d: "" });

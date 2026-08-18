@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FedHealth Aggregation Server</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="dashboard">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-main">FEDHEALTH</span>
+      <span class="brand-sub">aggregation server</span>
+    </div>
+    <div class="status-cluster">
+      <div class="status-item">
+        <span class="status-label">aggregation strategy</span>
+        <span id="strategy-indicator" class="strategy-value">waiting for aggregation</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label">round</span>
+        <span id="round-indicator" class="round-value">-- / --</span>
+      </div>
+      <div id="conn-status" class="conn-badge conn-offline">
+        <span class="conn-dot"></span>
+        <span id="conn-label">OFFLINE</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="grid">
+
+    <section class="panel graph-panel">
+      <h2 class="panel-title">federated network</h2>
+      <svg id="network-graph" viewBox="0 0 900 760" preserveAspectRatio="xMidYMid meet" aria-label="federated network graph"></svg>
+    </section>
+
+    <section class="panel accuracy-panel">
+      <h2 class="panel-title">global accuracy</h2>
+      <div class="chart-wrap">
+        <svg id="accuracy-chart" viewBox="0 0 640 280" preserveAspectRatio="xMidYMid meet" aria-label="global accuracy chart"></svg>
+        <div id="crossing-label" class="crossing-label hidden">federated model now beats every individual hospital</div>
+      </div>
+    </section>
+
+    <div class="secondary">
+
+      <section class="panel epsilon-panel">
+        <h2 class="panel-title">privacy budget</h2>
+        <div class="gauge-track">
+          <div id="gauge-fill" class="gauge-fill"></div>
+        </div>
+        <div id="epsilon-label" class="epsilon-label">privacy budget consumed, epsilon = 0.00 of 6.0</div>
+        <div class="epsilon-caption">lower epsilon means stronger privacy</div>
+        <div id="dp-off-banner" class="dp-off-banner hidden">DP OFF</div>
+      </section>
+
+      <section class="panel throughput-panel">
+        <h2 class="panel-title">round and throughput</h2>
+        <div class="metric-row">
+          <div class="metric">
+            <span class="metric-label">round</span>
+            <span id="round-value" class="metric-value">-- / --</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">bytes exchanged</span>
+            <span id="bytes-value" class="metric-value">0 B</span>
+          </div>
+        </div>
+        <div class="records-counter">
+          <span id="records-value">TOTAL PATIENT RECORDS RECEIVED: 0</span>
+        </div>
+      </section>
+
+    </div>
+
+    <section class="panel surveillance-panel">
+      <h2 class="panel-title">surveillance</h2>
+      <div class="surveillance-slot">
+        <iframe id="surveillance-iframe" class="hidden" title="surveillance map"></iframe>
+        <div id="surveillance-fallback" class="surveillance-fallback">surveillance map slot</div>
+      </div>
+    </section>
+
+  </main>
+
+</div>
+<script src="app.js"></script>
+</body>
+</html>

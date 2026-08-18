@@ -298,7 +298,7 @@ function spawnPacket(fromId, toId, label, inbound) {
   requestAnimationFrame(step);
 }
 
-const chart = { width: 640, height: 240, padLeft: 64, padRight: 14, padTop: 14, padBottom: 42 };
+const chart = { width: 640, height: 100, padLeft: 50, padRight: 22, padTop: 8, padBottom: 18 };
 let chartLine = null;
 let chartArea = null;
 let latestPointEl = null;
@@ -354,14 +354,39 @@ function buildAccuracyChart() {
     x2: chart.width - chart.padRight, y2: chart.height - chart.padBottom
   }));
 
+  const gridGroup = svgEl("g", { class: "chart-grid" });
   const tickCount = 4;
   for (let i = 0; i <= tickCount; i++) {
     const value = yDomainMin + ((yDomainMax - yDomainMin) * i) / tickCount;
     const y = chartY(value);
+    gridGroup.appendChild(svgEl("line", {
+      class: "chart-grid-line",
+      x1: chart.padLeft, y1: y,
+      x2: chart.width - chart.padRight, y2: y
+    }));
     const label = svgEl("text", { class: "chart-tick-label", x: chart.padLeft - 10, y: y + 4, "text-anchor": "end" });
     label.textContent = value.toFixed(2);
     svg.appendChild(label);
   }
+  svg.appendChild(gridGroup);
+
+  [1, 5, 10, totalRoundsSeen].forEach((round, index, all) => {
+    if (round > totalRoundsSeen || all.indexOf(round) !== index) return;
+    const x = chartX(round);
+    svg.appendChild(svgEl("line", {
+      class: "chart-x-tick",
+      x1: x, y1: chart.height - chart.padBottom,
+      x2: x, y2: chart.height - chart.padBottom + 6
+    }));
+    const label = svgEl("text", {
+      class: "chart-x-label",
+      x,
+      y: chart.height - 12,
+      "text-anchor": "middle"
+    });
+    label.textContent = "R" + round;
+    svg.appendChild(label);
+  });
 
   Object.keys(LOCAL_BASELINES).forEach((id) => {
     const value = LOCAL_BASELINES[id];

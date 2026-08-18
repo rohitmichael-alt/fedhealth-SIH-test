@@ -224,7 +224,7 @@ function updateClientMetrics(data) {
   const progress = document.getElementById("progress-" + data.client);
   if (samples && typeof data.samples !== "undefined") samples.textContent = data.samples;
   if (loss && typeof data.local_loss !== "undefined") loss.textContent = Number(data.local_loss).toFixed(3);
-  if (progress && typeof data.progress !== "undefined") progress.style.width = Math.round(data.progress * 100) + "%";
+  if (progress && typeof data.progress !== "undefined") progress.style.transform = "scaleX(" + Math.max(0, Math.min(1, data.progress)) + ")";
 }
 
 function updateClientPayload(client, bytes) {
@@ -581,7 +581,7 @@ function handleEvent(data) {
       updateRoundDisplays(data.round, data.total_rounds);
       recoverActiveNodes(data.clients);
       updateServerOps("BROADCASTING GLOBAL WEIGHTS");
-      data.clients.forEach((id) => spawnPacket("server", id, null, false));
+      data.clients.forEach((id) => spawnPacket("server", id, "weights", false));
       break;
 
     case "client_training":

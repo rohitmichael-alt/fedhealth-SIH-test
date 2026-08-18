@@ -17,11 +17,11 @@
     <div class="status-cluster">
       <div class="status-item">
         <span class="status-label">aggregation strategy</span>
-        <span id="strategy-indicator" class="strategy-value">waiting for aggregation</span>
+        <span id="strategy-indicator" class="strategy-value mono">waiting for aggregation</span>
       </div>
       <div class="status-item">
         <span class="status-label">round</span>
-        <span id="round-indicator" class="round-value">-- / --</span>
+        <span id="round-indicator" class="round-value mono">-- / --</span>
       </div>
       <div id="conn-status" class="conn-badge conn-offline">
         <span class="conn-dot"></span>
@@ -30,20 +30,32 @@
     </div>
   </header>
 
+  <div class="shimmer-line"><span class="shimmer-sweep"></span></div>
+
   <main class="grid">
 
     <section class="panel graph-panel">
-      <h2 class="panel-title">federated network</h2>
-      <svg id="network-graph" viewBox="0 0 900 760" preserveAspectRatio="xMidYMid meet" aria-label="federated network graph"></svg>
+      <div class="panel-head">
+        <h2 class="panel-title">federated network</h2>
+        <span id="server-ops" class="panel-sub mono">IDLE</span>
+      </div>
+      <svg id="network-graph" viewBox="0 0 900 660" preserveAspectRatio="xMidYMid meet" aria-label="federated network graph"></svg>
+      <div id="client-rail" class="client-rail"></div>
     </section>
 
     <section class="panel accuracy-panel">
-      <h2 class="panel-title">global accuracy</h2>
+      <div class="panel-head">
+        <h2 class="panel-title">global accuracy</h2>
+        <span id="acc-value" class="panel-value mono">--</span>
+      </div>
       <div class="crossing-slot">
-        <div id="crossing-label" class="crossing-label">federated model now beats every individual hospital</div>
+        <div id="crossing-label" class="crossing-pill">
+          <span class="crossing-dot"></span>
+          <span>federated model now beats every individual hospital</span>
+        </div>
       </div>
       <div class="chart-wrap">
-        <svg id="accuracy-chart" viewBox="0 0 640 280" preserveAspectRatio="xMidYMid meet" aria-label="global accuracy chart"></svg>
+        <svg id="accuracy-chart" viewBox="0 0 640 240" preserveAspectRatio="xMidYMid meet" aria-label="global accuracy chart"></svg>
       </div>
       <div id="baseline-legend" class="baseline-legend"></div>
     </section>
@@ -51,39 +63,79 @@
     <div class="secondary">
 
       <section class="panel epsilon-panel">
-        <h2 class="panel-title">privacy budget</h2>
-        <div class="gauge-track">
-          <div id="gauge-fill" class="gauge-fill"></div>
+        <div class="panel-head">
+          <h2 class="panel-title">privacy budget</h2>
+          <span id="dp-badge" class="panel-sub mono dp-on">DP ON</span>
+        </div>
+        <div id="gauge-segments" class="gauge-segments"></div>
+        <div class="epsilon-readout">
+          <span id="epsilon-value" class="epsilon-big mono">0.00</span>
+          <span class="epsilon-ceiling mono">of 6.0</span>
         </div>
         <div id="epsilon-label" class="epsilon-label">privacy budget consumed, epsilon = 0.00 of 6.0</div>
+        <div class="privacy-stats">
+          <div class="privacy-stat">
+            <span class="metric-label">delta</span>
+            <span id="delta-value" class="mono privacy-stat-value">--</span>
+          </div>
+          <div class="privacy-stat">
+            <span class="metric-label">noise mult.</span>
+            <span id="noise-value" class="mono privacy-stat-value">--</span>
+          </div>
+          <div class="privacy-stat">
+            <span class="metric-label">clip norm</span>
+            <span id="clip-value" class="mono privacy-stat-value">--</span>
+          </div>
+        </div>
         <div class="epsilon-caption">lower epsilon means stronger privacy</div>
-        <div id="dp-off-banner" class="dp-off-banner hidden">DP OFF</div>
       </section>
 
       <section class="panel throughput-panel">
         <h2 class="panel-title">round and throughput</h2>
         <div class="metric-row">
-          <div class="metric">
+          <div class="metric round-metric">
             <span class="metric-label">round</span>
-            <span id="round-value" class="metric-value">-- / --</span>
+            <span id="round-value" class="metric-value mono">-- / --</span>
           </div>
-          <div class="metric">
+          <div class="metric bytes-metric">
             <span class="metric-label">bytes exchanged</span>
-            <span id="bytes-value" class="metric-value">0 B</span>
+            <span class="bytes-stack mono">
+              <span id="bytes-number" class="bytes-number">0</span>
+              <span id="bytes-unit" class="bytes-unit">B</span>
+            </span>
+          </div>
+          <div class="metric payload-metric">
+            <span class="metric-label">payload</span>
+            <span class="metric-value-small mono">model_weights</span>
+          </div>
+          <div class="metric updates-metric">
+            <span class="metric-label">updates</span>
+            <span id="updates-value" class="metric-value-small mono">0 rcvd</span>
           </div>
         </div>
         <div class="records-counter">
-          <span id="records-value">TOTAL PATIENT RECORDS RECEIVED: 0</span>
+          <span class="records-label">PATIENT IMAGES RECEIVED</span>
+          <span id="records-value" class="records-value mono">0</span>
         </div>
       </section>
 
     </div>
 
     <section class="panel surveillance-panel">
-      <h2 class="panel-title">surveillance</h2>
+      <div class="panel-head">
+        <h2 class="panel-title">surveillance</h2>
+        <span class="panel-sub mono">DP-NOISED AGGREGATES</span>
+      </div>
       <div class="surveillance-slot">
         <iframe id="surveillance-iframe" class="hidden" title="surveillance map"></iframe>
-        <div id="surveillance-fallback" class="surveillance-fallback">surveillance map slot</div>
+        <div id="surveillance-fallback" class="surveillance-fallback">
+          <span class="map-bubble map-bubble-a"></span>
+          <span class="map-bubble map-bubble-b"></span>
+          <span class="map-bubble map-bubble-c"></span>
+          <span class="district-card district-card-a"><span>CHENNAI</span><strong>--</strong></span>
+          <span class="district-card district-card-b"><span>COIMBATORE</span><strong>--</strong></span>
+          <span class="district-card district-card-c"><span>MADURAI</span><strong>--</strong></span>
+        </div>
       </div>
     </section>
 

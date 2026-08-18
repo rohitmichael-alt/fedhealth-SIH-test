@@ -15,25 +15,33 @@ const BASELINE_DASH = {
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const HOSPITALS = [
-  { id: "hosp_a", name: "Apollo Referral Centre", location: "Chennai", skew: "severe cases, grades 3 and 4 over-represented" },
-  { id: "hosp_b", name: "Rural Screening Camp", location: "Coimbatore", skew: "mild and healthy, grades 0 and 1 over-represented" },
-  { id: "hosp_c", name: "District Hospital", location: "Madurai", skew: "mixed grades, degraded image quality" }
+  { id: "hosp_a", name: "Apollo Referral Centre", shortName: "Apollo", location: "Chennai", skew: "severe cases, grades 3 and 4 over-represented" },
+  { id: "hosp_b", name: "Rural Screening Camp", shortName: "Rural Camp", location: "Coimbatore", skew: "mild and healthy, grades 0 and 1 over-represented" },
+  { id: "hosp_c", name: "District Hospital", shortName: "District Hosp.", location: "Madurai", skew: "mixed grades, degraded image quality" }
 ];
 
 const POS = {
-  server: { x: 450, y: 400 },
-  hosp_a: { x: 450, y: 140 },
-  hosp_b: { x: 190, y: 620 },
-  hosp_c: { x: 710, y: 620 }
+  server: { x: 450, y: 350, r: 66 },
+  hosp_a: { x: 450, y: 112, r: 54 },
+  hosp_b: { x: 170, y: 596, r: 54 },
+  hosp_c: { x: 730, y: 596, r: 54 }
+};
+
+const LINK_PATH_D = {
+  hosp_a: "M450,168 C474,236 474,272 450,306",
+  hosp_b: "M208,552 C296,506 330,458 396,392",
+  hosp_c: "M692,552 C604,506 570,458 504,392"
 };
 
 const nodeRefs = {};
+const linkPathEls = {};
 let packetsLayer = null;
 
 let totalRoundsSeen = 15;
 let accuracyPoints = [];
 let accuracyCrossed = false;
 let totalBytes = 0;
+let updatesReceived = 0;
 
 const dom = {
   connStatus: document.getElementById("conn-status"),
@@ -41,10 +49,19 @@ const dom = {
   strategyIndicator: document.getElementById("strategy-indicator"),
   roundIndicator: document.getElementById("round-indicator"),
   roundValue: document.getElementById("round-value"),
-  bytesValue: document.getElementById("bytes-value"),
-  gaugeFill: document.getElementById("gauge-fill"),
+  bytesNumber: document.getElementById("bytes-number"),
+  bytesUnit: document.getElementById("bytes-unit"),
+  updatesValue: document.getElementById("updates-value"),
+  clientRail: document.getElementById("client-rail"),
+  accValue: document.getElementById("acc-value"),
+  serverOps: document.getElementById("server-ops"),
+  gaugeSegments: document.getElementById("gauge-segments"),
+  epsilonValue: document.getElementById("epsilon-value"),
   epsilonLabel: document.getElementById("epsilon-label"),
-  dpOffBanner: document.getElementById("dp-off-banner"),
+  dpBadge: document.getElementById("dp-badge"),
+  deltaValue: document.getElementById("delta-value"),
+  noiseValue: document.getElementById("noise-value"),
+  clipValue: document.getElementById("clip-value"),
   crossingLabel: document.getElementById("crossing-label"),
   surveillanceIframe: document.getElementById("surveillance-iframe"),
   surveillanceFallback: document.getElementById("surveillance-fallback")
@@ -55,9 +72,9 @@ function prefersReducedMotion() {
 }
 
 function formatBytes(n) {
-  if (n < 1024) return n + " B";
-  if (n < 1024 * 1024) return (n / 1024).toFixed(1) + " KB";
-  return (n / (1024 * 1024)).toFixed(2) + " MB";
+  if (n < 1024) return { value: String(n), unit: "B" };
+  if (n < 1024 * 1024) return { value: (n / 1024).toFixed(1), unit: "KB" };
+  return { value: (n / (1024 * 1024)).toFixed(2), unit: "MB" };
 }
 
 function svgEl(tag, attrs) {
@@ -71,20 +88,37 @@ function svgEl(tag, attrs) {
 function buildNetworkGraph() {
   const svg = document.getElementById("network-graph");
 
+  const defs = svgEl("defs", {});
+  const glow = svgEl("radialGradient", { id: "fh-server-glow", cx: "50%", cy: "50%", r: "50%" });
+  glow.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#4D8DFF", "stop-opacity": "0.28" }));
+  glow.appendChild(svgEl("stop", { offset: "70%", "stop-color": "#4D8DFF", "stop-opacity": "0.05" }));
+  glow.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#4D8DFF", "stop-opacity": "0" }));
+  defs.appendChild(glow);
+  const dotPattern = svgEl("pattern", { id: "fh-dots", width: 26, height: 26, patternUnits: "userSpaceOnUse" });
+  dotPattern.appendChild(svgEl("circle", { cx: 1.2, cy: 1.2, r: 1.2, fill: "#ffffff", "fill-opacity": 0.05 }));
+  defs.appendChild(dotPattern);
+  svg.appendChild(defs);
+
+  svg.appendChild(svgEl("rect", { x: 0, y: 0, width: 900, height: 660, fill: "url(#fh-dots)" }));
+
   const linksLayer = svgEl("g", { id: "links-layer" });
   HOSPITALS.forEach((h) => {
-    linksLayer.appendChild(svgEl("line", {
-      class: "link-line",
-      x1: POS.server.x, y1: POS.server.y,
-      x2: POS[h.id].x, y2: POS[h.id].y
-    }));
+    const path = svgEl("path", { class: "link-line", d: LINK_PATH_D[h.id] });
+    const dashedPath = svgEl("path", { class: "link-dash", d: LINK_PATH_D[h.id] });
+    linksLayer.appendChild(path);
+    linksLayer.appendChild(dashedPath);
+    linkPathEls[h.id] = path;
   });
   svg.appendChild(linksLayer);
 
   const nodesLayer = svgEl("g", { id: "nodes-layer" });
 
   const serverGroup = svgEl("g", { class: "node-group node-server", "data-id": "server" });
-  serverGroup.appendChild(svgEl("circle", { class: "node-circle", cx: POS.server.x, cy: POS.server.y, r: 70 }));
+  serverGroup.appendChild(svgEl("circle", { cx: POS.server.x, cy: POS.server.y, r: 140, fill: "url(#fh-server-glow)" }));
+  serverGroup.appendChild(svgEl("circle", { class: "server-ring-spin-rev", cx: POS.server.x, cy: POS.server.y, r: 112, "stroke-dasharray": "6 26" }));
+  serverGroup.appendChild(svgEl("circle", { class: "server-ring-spin", cx: POS.server.x, cy: POS.server.y, r: 98, "stroke-dasharray": "34 210" }));
+  serverGroup.appendChild(svgEl("circle", { class: "node-circle", cx: POS.server.x, cy: POS.server.y, r: POS.server.r }));
+
   const serverLabel = svgEl("text", { class: "node-label", x: POS.server.x, y: POS.server.y - 4 });
   serverLabel.textContent = "AGGREGATION";
   const serverSub = svgEl("text", { class: "node-sub", x: POS.server.x, y: POS.server.y + 18 });
@@ -101,17 +135,18 @@ function buildNetworkGraph() {
     title.textContent = h.name + ", " + h.location + ". " + h.skew;
     group.appendChild(title);
 
-    group.appendChild(svgEl("circle", { class: "node-circle", cx: pos.x, cy: pos.y, r: 62 }));
+    group.appendChild(svgEl("circle", { class: "node-focus-ring", cx: pos.x, cy: pos.y, r: pos.r + 6 }));
+    group.appendChild(svgEl("circle", { class: "node-circle", cx: pos.x, cy: pos.y, r: pos.r }));
 
     const nameLabel = svgEl("text", { class: "node-label", x: pos.x, y: pos.y - 6 });
-    nameLabel.textContent = h.name;
+    nameLabel.textContent = h.shortName;
     group.appendChild(nameLabel);
 
     const locLabel = svgEl("text", { class: "node-sub", x: pos.x, y: pos.y + 16 });
     locLabel.textContent = h.location;
     group.appendChild(locLabel);
 
-    const statusLabel = svgEl("text", { class: "node-status hidden", x: pos.x, y: pos.y + 38 });
+    const statusLabel = svgEl("text", { class: "node-status hidden", x: pos.x, y: pos.y + pos.r + 22 });
     statusLabel.textContent = "OFFLINE";
     group.appendChild(statusLabel);
 
@@ -125,10 +160,33 @@ function buildNetworkGraph() {
   svg.appendChild(packetsLayer);
 }
 
+function buildClientRail() {
+  dom.clientRail.innerHTML = "";
+  HOSPITALS.forEach((h) => {
+    const card = document.createElement("div");
+    card.className = "client-card";
+    card.id = "card-" + h.id;
+    card.innerHTML = [
+      "<div class=\"client-card-top\">",
+      "<span class=\"client-name\">" + h.name + "</span>",
+      "<span class=\"client-state mono\" id=\"state-" + h.id + "\">IDLE</span>",
+      "</div>",
+      "<div class=\"client-metrics\">",
+      "<span><b id=\"samples-" + h.id + "\">--</b><small>samples</small></span>",
+      "<span><b id=\"loss-" + h.id + "\">--</b><small>loss</small></span>",
+      "<span><b id=\"payload-" + h.id + "\">--</b><small>last update</small></span>",
+      "</div>",
+      "<div class=\"client-progress\"><span id=\"progress-" + h.id + "\"></span></div>"
+    ].join("");
+    dom.clientRail.appendChild(card);
+  });
+}
+
 function setNodeTraining(id, on) {
   const ref = nodeRefs[id];
   if (!ref) return;
   ref.group.classList.toggle("training", on);
+  setClientState(id, on ? "TRAINING" : "IDLE");
 }
 
 function setNodeOffline(id, on) {
@@ -137,6 +195,7 @@ function setNodeOffline(id, on) {
   ref.group.classList.toggle("offline", on);
   ref.statusLabel.classList.toggle("hidden", !on);
   if (on) setNodeTraining(id, false);
+  setClientState(id, on ? "OFFLINE" : "IDLE");
 }
 
 function recoverActiveNodes(clients) {
@@ -145,10 +204,45 @@ function recoverActiveNodes(clients) {
   });
 }
 
+function updateServerOps(text) {
+  if (dom.serverOps) dom.serverOps.textContent = text;
+}
+
+function hospitalName(id) {
+  const hospital = HOSPITALS.find((h) => h.id === id);
+  return hospital ? hospital.shortName.toUpperCase() : id.toUpperCase();
+}
+
+function setClientState(id, state) {
+  const stateEl = document.getElementById("state-" + id);
+  const card = document.getElementById("card-" + id);
+  if (!stateEl || !card) return;
+  stateEl.textContent = state;
+  card.classList.remove("training", "sent", "offline");
+  if (state === "TRAINING") card.classList.add("training");
+  if (state === "SENT") card.classList.add("sent");
+  if (state === "OFFLINE") card.classList.add("offline");
+}
+
+function updateClientMetrics(data) {
+  const samples = document.getElementById("samples-" + data.client);
+  const loss = document.getElementById("loss-" + data.client);
+  const progress = document.getElementById("progress-" + data.client);
+  if (samples && typeof data.samples !== "undefined") samples.textContent = data.samples;
+  if (loss && typeof data.local_loss !== "undefined") loss.textContent = Number(data.local_loss).toFixed(3);
+  if (progress && typeof data.progress !== "undefined") progress.style.width = Math.round(data.progress * 100) + "%";
+}
+
+function updateClientPayload(client, bytes) {
+  const payload = document.getElementById("payload-" + client);
+  if (payload) payload.textContent = (bytes / 1024).toFixed(1) + " KB";
+}
+
 function spawnPacket(fromId, toId, label, inbound) {
-  const from = POS[fromId];
-  const to = POS[toId];
-  if (!from || !to || !packetsLayer) return;
+  if (!packetsLayer) return;
+  const hospitalId = inbound ? fromId : toId;
+  const pathEl = linkPathEls[hospitalId];
+  if (!pathEl) return;
 
   const group = svgEl("g", { class: "packet-group" });
   const circle = svgEl("circle", { r: 9, class: "packet" + (inbound ? " inbound" : "") });
@@ -164,22 +258,26 @@ function spawnPacket(fromId, toId, label, inbound) {
   packetsLayer.appendChild(group);
   setTimeout(() => group.remove(), 3000);
 
-  function place(x, y) {
-    circle.setAttribute("cx", x);
-    circle.setAttribute("cy", y);
+  const totalLength = pathEl.getTotalLength();
+
+  function place(t) {
+    const clamped = Math.min(1, Math.max(0, t));
+    const point = pathEl.getPointAtLength(totalLength * clamped);
+    circle.setAttribute("cx", point.x);
+    circle.setAttribute("cy", point.y);
     if (labelEl) {
-      labelEl.setAttribute("x", x);
-      labelEl.setAttribute("y", y - 16);
+      labelEl.setAttribute("x", point.x);
+      labelEl.setAttribute("y", point.y - 16);
     }
   }
 
   if (prefersReducedMotion()) {
-    place(to.x, to.y);
+    place(inbound ? 1 : 0);
     setTimeout(() => group.remove(), 400);
     return;
   }
 
-  const duration = 1700;
+  const duration = 1150;
   const start = performance.now();
 
   function ease(t) {
@@ -189,7 +287,7 @@ function spawnPacket(fromId, toId, label, inbound) {
   function step(now) {
     const t = Math.min(1, (now - start) / duration);
     const e = ease(t);
-    place(from.x + (to.x - from.x) * e, from.y + (to.y - from.y) * e);
+    place(inbound ? e : 1 - e);
     if (t < 1) {
       requestAnimationFrame(step);
     } else {
@@ -200,8 +298,9 @@ function spawnPacket(fromId, toId, label, inbound) {
   requestAnimationFrame(step);
 }
 
-const chart = { width: 640, height: 280, padLeft: 46, padRight: 14, padTop: 14, padBottom: 26 };
+const chart = { width: 640, height: 240, padLeft: 64, padRight: 14, padTop: 14, padBottom: 42 };
 let chartLine = null;
+let chartArea = null;
 let latestPointEl = null;
 let crossingMarkerEl = null;
 
@@ -221,25 +320,45 @@ function chartY(acc) {
   return chart.padTop + (1 - (clamped - yDomainMin) / (yDomainMax - yDomainMin)) * span;
 }
 
+function smoothPath(points) {
+  if (points.length === 0) return "";
+  if (points.length < 2) return "M" + points[0][0] + "," + points[0][1];
+  let d = "M" + points[0][0] + "," + points[0][1];
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += " C" + c1x + "," + c1y + " " + c2x + "," + c2y + " " + p2[0] + "," + p2[1];
+  }
+  return d;
+}
+
 function buildAccuracyChart() {
   const svg = document.getElementById("accuracy-chart");
 
-  svg.appendChild(svgEl("line", {
-    class: "chart-axis",
-    x1: chart.padLeft, y1: chart.padTop,
-    x2: chart.padLeft, y2: chart.height - chart.padBottom
-  }));
+  const defs = svgEl("defs", {});
+  const gradient = svgEl("linearGradient", { id: "accuracy-area-gradient", x1: 0, y1: 0, x2: 0, y2: 1 });
+  gradient.appendChild(svgEl("stop", { offset: "0%", "stop-color": "#4D8DFF", "stop-opacity": 0.4 }));
+  gradient.appendChild(svgEl("stop", { offset: "100%", "stop-color": "#4D8DFF", "stop-opacity": 0 }));
+  defs.appendChild(gradient);
+  svg.appendChild(defs);
+
   svg.appendChild(svgEl("line", {
     class: "chart-axis",
     x1: chart.padLeft, y1: chart.height - chart.padBottom,
     x2: chart.width - chart.padRight, y2: chart.height - chart.padBottom
   }));
 
-  const tickCount = 5;
+  const tickCount = 4;
   for (let i = 0; i <= tickCount; i++) {
     const value = yDomainMin + ((yDomainMax - yDomainMin) * i) / tickCount;
     const y = chartY(value);
-    const label = svgEl("text", { class: "chart-tick-label", x: chart.padLeft - 8, y: y + 4, "text-anchor": "end" });
+    const label = svgEl("text", { class: "chart-tick-label", x: chart.padLeft - 10, y: y + 4, "text-anchor": "end" });
     label.textContent = value.toFixed(2);
     svg.appendChild(label);
   }
@@ -260,7 +379,7 @@ function buildAccuracyChart() {
     legend.innerHTML = "";
     Object.keys(LOCAL_BASELINES).forEach((id) => {
       const item = document.createElement("span");
-      item.className = "legend-item";
+      item.className = "legend-item mono";
       const swatch = document.createElementNS(SVG_NS, "svg");
       swatch.setAttribute("viewBox", "0 0 24 4");
       swatch.setAttribute("class", "legend-swatch");
@@ -274,7 +393,10 @@ function buildAccuracyChart() {
     });
   }
 
-  chartLine = svgEl("polyline", { class: "chart-line", points: "" });
+  chartArea = svgEl("path", { class: "chart-area", d: "" });
+  svg.appendChild(chartArea);
+
+  chartLine = svgEl("path", { class: "chart-line", d: "" });
   svg.appendChild(chartLine);
 
   latestPointEl = svgEl("circle", { class: "current-point", r: 4, cx: -100, cy: -100 });
@@ -282,22 +404,34 @@ function buildAccuracyChart() {
 }
 
 function redrawAccuracyLine() {
-  const points = accuracyPoints.map((p) => chartX(p.round) + "," + chartY(p.acc)).join(" ");
-  chartLine.setAttribute("points", points);
+  const points = accuracyPoints.map((p) => [chartX(p.round), chartY(p.acc)]);
+  const linePath = smoothPath(points);
+  chartLine.setAttribute("d", linePath);
+
+  if (points.length > 1) {
+    const baseline = chart.height - chart.padBottom;
+    const last = points[points.length - 1];
+    const first = points[0];
+    chartArea.setAttribute("d", linePath + " L" + last[0] + "," + baseline + " L" + first[0] + "," + baseline + " Z");
+  } else {
+    chartArea.setAttribute("d", "");
+  }
+
   if (accuracyPoints.length > 0) {
     const last = accuracyPoints[accuracyPoints.length - 1];
     latestPointEl.setAttribute("cx", chartX(last.round));
     latestPointEl.setAttribute("cy", chartY(last.acc));
+    dom.accValue.textContent = last.acc.toFixed(3);
   } else {
     latestPointEl.setAttribute("cx", -100);
     latestPointEl.setAttribute("cy", -100);
+    dom.accValue.textContent = "--";
   }
 }
 
 function resetAccuracyChart() {
   accuracyPoints = [];
   accuracyCrossed = false;
-  if (chartLine) chartLine.setAttribute("points", "");
   if (crossingMarkerEl) {
     crossingMarkerEl.remove();
     crossingMarkerEl = null;
@@ -330,19 +464,40 @@ function addAccuracyPoint(round, acc) {
   maybeFlagCrossing();
 }
 
+function buildEpsilonGauge() {
+  dom.gaugeSegments.innerHTML = "";
+  for (let i = 0; i < 20; i++) {
+    dom.gaugeSegments.appendChild(document.createElement("span")).className = "gauge-segment";
+  }
+}
+
 function updateEpsilonGauge(epsilon, dpEnabled) {
-  const pct = Math.min(100, (epsilon / EPSILON_CEILING) * 100);
-  dom.gaugeFill.style.width = pct + "%";
+  const pct = Math.min(1, epsilon / EPSILON_CEILING);
+  const filled = Math.round(pct * 20);
+  const segments = dom.gaugeSegments.children;
+
+  let litClass = "lit-accent";
+  if (!dpEnabled) {
+    litClass = "lit-danger";
+  } else if (pct > 0.7) {
+    litClass = "lit-warn";
+  }
+
+  for (let i = 0; i < segments.length; i++) {
+    segments[i].className = "gauge-segment" + (i < filled ? " " + litClass : "");
+  }
+
+  dom.epsilonValue.textContent = epsilon.toFixed(2);
   dom.epsilonLabel.textContent = "privacy budget consumed, epsilon = " + epsilon.toFixed(2) + " of " + EPSILON_CEILING.toFixed(1);
 
-  dom.gaugeFill.classList.remove("warn", "dp-off");
-  dom.dpOffBanner.classList.add("hidden");
-
-  if (!dpEnabled) {
-    dom.gaugeFill.classList.add("dp-off");
-    dom.dpOffBanner.classList.remove("hidden");
-  } else if (pct > 70) {
-    dom.gaugeFill.classList.add("warn");
+  if (dpEnabled) {
+    dom.dpBadge.textContent = "DP ON";
+    dom.dpBadge.classList.add("dp-on");
+    dom.dpBadge.classList.remove("dp-off");
+  } else {
+    dom.dpBadge.textContent = "DP OFF";
+    dom.dpBadge.classList.add("dp-off");
+    dom.dpBadge.classList.remove("dp-on");
   }
 }
 
@@ -354,7 +509,10 @@ function updateRoundDisplays(round, total) {
 }
 
 function updateThroughputDisplay() {
-  dom.bytesValue.textContent = formatBytes(totalBytes);
+  const formatted = formatBytes(totalBytes);
+  dom.bytesNumber.textContent = formatted.value;
+  dom.bytesUnit.textContent = formatted.unit;
+  dom.updatesValue.textContent = updatesReceived + " rcvd";
 }
 
 function updateStrategyDisplay(strategy) {
@@ -400,24 +558,33 @@ function initSurveillance() {
     .catch(() => showFallback());
 }
 
+let serverOpsResetTimer = null;
+
 function handleEvent(data) {
   switch (data.type) {
     case "round_start":
       if (data.round === 1) resetAccuracyChart();
       updateRoundDisplays(data.round, data.total_rounds);
       recoverActiveNodes(data.clients);
+      updateServerOps("BROADCASTING GLOBAL WEIGHTS");
       data.clients.forEach((id) => spawnPacket("server", id, null, false));
       break;
 
     case "client_training":
       setNodeTraining(data.client, true);
+      updateClientMetrics(data);
+      updateServerOps(hospitalName(data.client) + " TRAINING");
       break;
 
     case "client_update": {
       setNodeTraining(data.client, false);
       const kb = (data.bytes / 1024).toFixed(1) + " KB";
       spawnPacket(data.client, "server", kb, true);
+      updateServerOps(hospitalName(data.client) + " UPLOADING");
       totalBytes += data.bytes;
+      updatesReceived += 1;
+      updateClientPayload(data.client, data.bytes);
+      setClientState(data.client, "SENT");
       updateThroughputDisplay();
       break;
     }
@@ -425,10 +592,16 @@ function handleEvent(data) {
     case "aggregate":
       updateStrategyDisplay(data.strategy);
       addAccuracyPoint(data.round, data.global_acc);
+      updateServerOps("AGGREGATING");
+      if (serverOpsResetTimer) clearTimeout(serverOpsResetTimer);
+      serverOpsResetTimer = setTimeout(() => updateServerOps("IDLE"), 1200);
       break;
 
     case "privacy":
       updateEpsilonGauge(data.epsilon, data.dp_enabled);
+      dom.deltaValue.textContent = data.delta;
+      dom.noiseValue.textContent = data.noise_multiplier.toFixed(2);
+      dom.clipValue.textContent = data.clip_norm.toFixed(2);
       break;
 
     case "surveillance":
@@ -496,5 +669,7 @@ function connectWebSocket() {
 
 buildNetworkGraph();
 buildAccuracyChart();
+buildEpsilonGauge();
+buildClientRail();
 initSurveillance();
 connectWebSocket();

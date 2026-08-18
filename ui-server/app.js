@@ -6,6 +6,12 @@ const LOCAL_BASELINES = {
 
 const EPSILON_CEILING = 6.0; // PERSON 5: replace if final privacy-utility result uses a different ceiling
 
+const BASELINE_DASH = {
+  hosp_a: "3 3",
+  hosp_b: "9 4",
+  hosp_c: "1 5"
+};
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 const HOSPITALS = [
@@ -156,7 +162,7 @@ function spawnPacket(fromId, toId, label, inbound) {
   }
 
   packetsLayer.appendChild(group);
-  setTimeout(() => group.remove(), 2000);
+  setTimeout(() => group.remove(), 3000);
 
   function place(x, y) {
     circle.setAttribute("cx", x);
@@ -173,7 +179,7 @@ function spawnPacket(fromId, toId, label, inbound) {
     return;
   }
 
-  const duration = 800;
+  const duration = 1700;
   const start = performance.now();
 
   function ease(t) {
@@ -199,6 +205,10 @@ let chartLine = null;
 let latestPointEl = null;
 let crossingMarkerEl = null;
 
+const baselineValues = Object.values(LOCAL_BASELINES);
+const yDomainMin = Math.max(0, Math.floor((Math.min(...baselineValues) - 0.25) * 20) / 20);
+const yDomainMax = 1.0;
+
 function chartX(round) {
   const span = chart.width - chart.padLeft - chart.padRight;
   const denom = Math.max(totalRoundsSeen - 1, 1);
@@ -207,42 +217,62 @@ function chartX(round) {
 
 function chartY(acc) {
   const span = chart.height - chart.padTop - chart.padBottom;
-  return chart.padTop + (1 - acc) * span;
+  const clamped = Math.min(yDomainMax, Math.max(yDomainMin, acc));
+  return chart.padTop + (1 - (clamped - yDomainMin) / (yDomainMax - yDomainMin)) * span;
 }
 
 function buildAccuracyChart() {
   const svg = document.getElementById("accuracy-chart");
 
-  const axisY = svg.appendChild(svgEl("line", {
+  svg.appendChild(svgEl("line", {
     class: "chart-axis",
     x1: chart.padLeft, y1: chart.padTop,
     x2: chart.padLeft, y2: chart.height - chart.padBottom
   }));
-  const axisX = svg.appendChild(svgEl("line", {
+  svg.appendChild(svgEl("line", {
     class: "chart-axis",
     x1: chart.padLeft, y1: chart.height - chart.padBottom,
     x2: chart.width - chart.padRight, y2: chart.height - chart.padBottom
   }));
 
-  [0, 0.25, 0.5, 0.75, 1].forEach((tick) => {
-    const y = chartY(tick);
+  const tickCount = 5;
+  for (let i = 0; i <= tickCount; i++) {
+    const value = yDomainMin + ((yDomainMax - yDomainMin) * i) / tickCount;
+    const y = chartY(value);
     const label = svgEl("text", { class: "chart-tick-label", x: chart.padLeft - 8, y: y + 4, "text-anchor": "end" });
-    label.textContent = tick.toFixed(2);
+    label.textContent = value.toFixed(2);
     svg.appendChild(label);
-  });
+  }
 
   Object.keys(LOCAL_BASELINES).forEach((id) => {
     const value = LOCAL_BASELINES[id];
     const y = chartY(value);
     svg.appendChild(svgEl("line", {
       class: "chart-baseline",
+      "stroke-dasharray": BASELINE_DASH[id],
       x1: chart.padLeft, y1: y,
       x2: chart.width - chart.padRight, y2: y
     }));
-    const label = svgEl("text", { class: "chart-baseline-label", x: chart.width - chart.padRight, y: y - 4, "text-anchor": "end" });
-    label.textContent = id + " " + value.toFixed(2);
-    svg.appendChild(label);
   });
+
+  const legend = document.getElementById("baseline-legend");
+  if (legend) {
+    legend.innerHTML = "";
+    Object.keys(LOCAL_BASELINES).forEach((id) => {
+      const item = document.createElement("span");
+      item.className = "legend-item";
+      const swatch = document.createElementNS(SVG_NS, "svg");
+      swatch.setAttribute("viewBox", "0 0 24 4");
+      swatch.setAttribute("class", "legend-swatch");
+      const swatchLine = svgEl("line", { x1: 0, y1: 2, x2: 24, y2: 2, class: "chart-baseline", "stroke-dasharray": BASELINE_DASH[id] });
+      swatch.appendChild(swatchLine);
+      item.appendChild(swatch);
+      const text = document.createElement("span");
+      text.textContent = id + " " + LOCAL_BASELINES[id].toFixed(2);
+      item.appendChild(text);
+      legend.appendChild(item);
+    });
+  }
 
   chartLine = svgEl("polyline", { class: "chart-line", points: "" });
   svg.appendChild(chartLine);
@@ -258,7 +288,22 @@ function redrawAccuracyLine() {
     const last = accuracyPoints[accuracyPoints.length - 1];
     latestPointEl.setAttribute("cx", chartX(last.round));
     latestPointEl.setAttribute("cy", chartY(last.acc));
+  } else {
+    latestPointEl.setAttribute("cx", -100);
+    latestPointEl.setAttribute("cy", -100);
   }
+}
+
+function resetAccuracyChart() {
+  accuracyPoints = [];
+  accuracyCrossed = false;
+  if (chartLine) chartLine.setAttribute("points", "");
+  if (crossingMarkerEl) {
+    crossingMarkerEl.remove();
+    crossingMarkerEl = null;
+  }
+  dom.crossingLabel.classList.remove("active");
+  redrawAccuracyLine();
 }
 
 function maybeFlagCrossing() {
@@ -276,7 +321,7 @@ function maybeFlagCrossing() {
     cy: chartY(last.acc)
   });
   svg.appendChild(crossingMarkerEl);
-  dom.crossingLabel.classList.remove("hidden");
+  dom.crossingLabel.classList.add("active");
 }
 
 function addAccuracyPoint(round, acc) {
@@ -358,6 +403,7 @@ function initSurveillance() {
 function handleEvent(data) {
   switch (data.type) {
     case "round_start":
+      if (data.round === 1) resetAccuracyChart();
       updateRoundDisplays(data.round, data.total_rounds);
       recoverActiveNodes(data.clients);
       data.clients.forEach((id) => spawnPacket("server", id, null, false));

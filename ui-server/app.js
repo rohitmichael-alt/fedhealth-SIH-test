@@ -6,10 +6,10 @@ const LOCAL_BASELINES = {
 
 const EPSILON_CEILING = 6.0; // PERSON 5: replace if final privacy-utility result uses a different ceiling
 
-const BASELINE_DASH = {
-  hosp_a: "3 3",
-  hosp_b: "9 4",
-  hosp_c: "1 5"
+const BASELINE_COLORS = {
+  hosp_a: "#9CA3AF",
+  hosp_b: "#7C8CA6",
+  hosp_c: "#5F6F89"
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -298,7 +298,7 @@ function spawnPacket(fromId, toId, label, inbound) {
   requestAnimationFrame(step);
 }
 
-const chart = { width: 640, height: 100, padLeft: 50, padRight: 22, padTop: 8, padBottom: 18 };
+const chart = { width: 640, height: 130, padLeft: 58, padRight: 22, padTop: 10, padBottom: 24 };
 let chartLine = null;
 let chartArea = null;
 let latestPointEl = null;
@@ -392,8 +392,8 @@ function buildAccuracyChart() {
     const value = LOCAL_BASELINES[id];
     const y = chartY(value);
     svg.appendChild(svgEl("line", {
-      class: "chart-baseline",
-      "stroke-dasharray": BASELINE_DASH[id],
+      class: "chart-baseline chart-baseline-" + id,
+      stroke: BASELINE_COLORS[id],
       x1: chart.padLeft, y1: y,
       x2: chart.width - chart.padRight, y2: y
     }));
@@ -408,7 +408,7 @@ function buildAccuracyChart() {
       const swatch = document.createElementNS(SVG_NS, "svg");
       swatch.setAttribute("viewBox", "0 0 24 4");
       swatch.setAttribute("class", "legend-swatch");
-      const swatchLine = svgEl("line", { x1: 0, y1: 2, x2: 24, y2: 2, class: "chart-baseline", "stroke-dasharray": BASELINE_DASH[id] });
+      const swatchLine = svgEl("line", { x1: 0, y1: 2, x2: 24, y2: 2, class: "chart-baseline", stroke: BASELINE_COLORS[id] });
       swatch.appendChild(swatchLine);
       item.appendChild(swatch);
       const text = document.createElement("span");
